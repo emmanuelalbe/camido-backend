@@ -68,10 +68,10 @@ Verificaciones de calidad asociadas al módulo:
 
 | Ítem | Estado |
 |---|---|
-| `spring-security-crypto` | Agregado en `pom.xml` (sin starter completo de auth). |
+| `spring-boot-starter-security` | Sesión HTTP + CSRF + BCrypt. Sin JWT. |
 | Bean `PasswordEncoder` (`BCryptPasswordEncoder`) | En `PasswordEncoderConfig`. |
 | Verificación de email | Token de un solo uso; sin loguear token ni secretos. |
-| Login / filtros Security / sesiones | **No implementados** (próximo módulo). |
+| Login / sesión | Implementado y probado en automático. E2E en navegador **pendiente**. |
 
 ## Registro (detalle histórico)
 
@@ -92,18 +92,19 @@ Verificaciones de calidad asociadas al módulo:
 | Flujo | Emisión tras registro; verificar/reenviar. UPDATE atómico + `emailVerificado` en la misma `@Transactional`. Envío **después del commit**. |
 | Reenvío | Lock pesimista; límites 1/2 min y 5/h; respuesta genérica. |
 | Correo | `NoEmailSender` solo fuera de prod; `ResendEmailSender` si `EMAIL_PROVIDER=resend`. |
-| CORS | `localhost:4200` → `/api/**`. |
+| CORS | `http://localhost:4200` con credenciales; headers `Content-Type`, `Accept`, `X-XSRF-TOKEN`. Sin origen `*`. |
 | Pruebas | Unitarias + `VerificacionEmailIntegrationTest` OK (2026-11-23). |
 
 ## Frontend Angular (`camido-frontend`)
 
 | Ítem | Estado |
 |---|---|
-| Estructura | Standalone; feature `features/auth/verificar-email`; página mínima `Inicio` en `/`. |
-| Entornos | Dev: `http://localhost:8080/api`. Prod: `/api` (mismo origen; proxy pendiente de despliegue). |
+| Estructura | Standalone; `features/auth` (verificación, login, bienvenida). |
+| Entornos | Dev y prod usan `/api`. En desarrollo `ng serve` proxea `/api` a `localhost:8080` para que la cookie de sesión sea del mismo sitio. |
 | UI verificación | Estados: verificando / ok / inválido / ausente / errorRed. Token fuera de la URL tras procesar. |
+| Login UI | `/login` (Reactive Forms) y `/bienvenida` protegida con guard. `AuthService` + `withCredentials`. Sin secretos en storage. |
 | Strict | TypeScript `strict` + `strictTemplates`. |
-| Pruebas | Vitest **5/5** OK. |
+| Pruebas | Vitest **11/11** OK (5 verificación + 6 login/sesión/guard). |
 | Builds | Development y production OK. |
 | Git | Configurado y publicado (ver sección siguiente). |
 
@@ -119,8 +120,24 @@ Verificaciones de calidad asociadas al módulo:
 | Commit inicial frontend | `chore: initial frontend baseline` (publicado). |
 | Seguridad | `.env` / secretos excluidos; `target/`, `node_modules/`, `dist/`, `.angular/`, `.cursor/` ignorados; `.env.example` solo con placeholders. Sin `push --force`. |
 
+## Login y sesión (2026-11-23)
+
+**Implementado y probado automáticamente. No validado E2E en el navegador.**
+
+| Ítem | Estado |
+|---|---|
+| Estrategia | Sesión de servidor (`JSESSIONID` HttpOnly, `SameSite=Lax`). `Secure` solo en perfil `prod`. CSRF con cookie `XSRF-TOKEN` (no HttpOnly) y header `X-XSRF-TOKEN`. |
+| Endpoints | `GET /api/auth/csrf`, `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`. |
+| Reglas | Email normalizado. Un mismo mensaje si no existe, contraseña incorrecta, email no verificado o cuenta no activa. Límite en memoria: 5 fallos / 15 min por IP+email (una sola instancia). |
+| Públicos | Registro, verificación, reenvío, saludo y login. El resto de `/api/**` exige sesión. |
+| Sesión | `changeSessionId` al autenticar. Logout invalida la sesión. No hay tabla nueva ni cambios a V1/V2. |
+| Pruebas backend | `AuthServiceTest` + `AuthControllerTest` OK (login, rechazo genérico, 401 sin sesión, logout, CSRF 403, límite 429). Registro y verificación de controllers/servicios sin regresión. |
+| E2E navegador | **Pendiente.** Hace falta autorización para usar o crear una cuenta de prueba. |
+
 ## Pendientes
 
-1. Revisar y limpiar usuarios de prueba, **previa autorización** (no borrar sin OK explícito).
-2. **Próximo módulo:** login y gestión segura de sesiones (backend + Angular).
-3. Instituciones / roles / evaluaciones: fuera del alcance inmediato.
+1. Validar login/logout en el navegador (E2E) con una cuenta de prueba autorizada.
+2. Revisar y limpiar usuarios de prueba, **previa autorización**.
+3. **Próximo módulo sugerido:** recuperación de contraseña (todavía no implementada).
+4. Instituciones / roles / evaluaciones: fuera del alcance inmediato.
+5. El límite de login es en memoria: no se comparte entre varias instancias.

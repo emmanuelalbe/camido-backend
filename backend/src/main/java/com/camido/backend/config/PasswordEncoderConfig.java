@@ -7,7 +7,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
  * Provee hashing BCrypt para {@code password_hash}.
- * No configura autenticación HTTP ni filtros de Spring Security.
+ * La sesión HTTP y los filtros viven en {@code SecurityConfig}.
  */
 @Configuration
 public class PasswordEncoderConfig {
