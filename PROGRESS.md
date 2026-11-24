@@ -105,11 +105,22 @@ Verificaciones de calidad asociadas al módulo:
 | Strict | TypeScript `strict` + `strictTemplates`. |
 | Pruebas | Vitest **5/5** OK. |
 | Builds | Development y production OK. |
-| Git | Sin repositorio inicializado (pendiente). |
+| Git | Configurado y publicado (ver sección siguiente). |
+
+## Git y GitHub (2026-11-23)
+
+| Ítem | Estado |
+|---|---|
+| Estrategia | Repositorios **independientes** (backend y frontend). |
+| Backend remoto | `https://github.com/emmanuelalbe/camido-backend.git` |
+| Frontend remoto | `https://github.com/emmanuelalbe/camido-frontend.git` |
+| Rama | `main` en ambos, con seguimiento a `origin/main`. |
+| Commit inicial backend | `chore: initial backend baseline` (publicado). |
+| Commit inicial frontend | `chore: initial frontend baseline` (publicado). |
+| Seguridad | `.env` / secretos excluidos; `target/`, `node_modules/`, `dist/`, `.angular/`, `.cursor/` ignorados; `.env.example` solo con placeholders. Sin `push --force`. |
 
 ## Pendientes
 
-1. Configurar Git para frontend y backend (recomendación: repos independientes).
-2. Revisar y limpiar usuarios de prueba, **previa autorización** (no borrar sin OK explícito).
-3. **Próximo módulo:** login y gestión segura de sesiones (backend + Angular).
-4. Instituciones / roles / evaluaciones: fuera del alcance inmediato.
+1. Revisar y limpiar usuarios de prueba, **previa autorización** (no borrar sin OK explícito).
+2. **Próximo módulo:** login y gestión segura de sesiones (backend + Angular).
+3. Instituciones / roles / evaluaciones: fuera del alcance inmediato.
