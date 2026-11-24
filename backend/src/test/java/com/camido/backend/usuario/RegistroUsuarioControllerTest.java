@@ -100,9 +100,37 @@ class RegistroUsuarioControllerTest {
 				.andExpect(content().string(not(containsString("abc"))));
 	}
 
+	@Test
+	void categoriaInexistenteDevuelve400() throws Exception {
+		String cuerpo = """
+				{"nombre":"Ana","apellido":"Paz","email":"ana@ejemplo.com","password":"%s","fechaNacimiento":"2000-01-02","intencion":"ORGANIZADOR","categoriaId":"33333333-3333-3333-3333-333333333333"}
+				""".formatted(PASSWORD);
+		mockMvc.perform(post("/api/usuarios/registro")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(cuerpo))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.mensaje").value("Los datos de registro no son válidos"))
+				.andExpect(content().string(not(containsString(PASSWORD))));
+	}
+
+	@Test
+	void alumnoOProfesorSinCategoriaDevuelven400() throws Exception {
+		for (String intencion : new String[] { "ALUMNO", "PROFESOR" }) {
+			String cuerpo = """
+					{"nombre":"Ana","apellido":"Paz","email":"ana@ejemplo.com","password":"%s","fechaNacimiento":"2000-01-02","intencion":"%s"}
+					""".formatted(PASSWORD, intencion);
+			mockMvc.perform(post("/api/usuarios/registro")
+							.contentType(MediaType.APPLICATION_JSON)
+							.content(cuerpo))
+					.andExpect(status().isBadRequest())
+					.andExpect(jsonPath("$.mensaje").value("Los datos de registro no son válidos"))
+					.andExpect(content().string(not(containsString(PASSWORD))));
+		}
+	}
+
 	private String json(String password) {
 		return """
-				{"nombre":"Ana","apellido":"Paz","email":"ana@ejemplo.com","password":"%s","fechaNacimiento":"2000-01-02"}
+				{"nombre":"Ana","apellido":"Paz","email":"ana@ejemplo.com","password":"%s","fechaNacimiento":"2000-01-02","intencion":"ORGANIZADOR"}
 				""".formatted(password);
 	}
 
@@ -120,7 +148,9 @@ class RegistroUsuarioControllerTest {
 					state.repositorio(),
 					state.encoder(),
 					state.transacciones(),
-					Mockito.mock(VerificacionEmailService.class));
+					Mockito.mock(VerificacionEmailService.class),
+					Mockito.mock(com.camido.backend.categoria.CategoriaRepository.class),
+					Mockito.mock(com.camido.backend.categoria.DeclaracionCategoriaRepository.class));
 		}
 	}
 

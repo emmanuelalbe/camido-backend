@@ -3,6 +3,8 @@ package com.camido.backend.usuario;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
+
+import com.camido.backend.categoria.CategoriaInvalidaException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -35,7 +37,7 @@ public class RegistroUsuarioController {
 				.body(new ErrorRegistro("El email ya está registrado"));
 	}
 
-	@ExceptionHandler(MethodArgumentNotValidException.class)
+	@ExceptionHandler({ MethodArgumentNotValidException.class, CategoriaInvalidaException.class })
 	public ResponseEntity<ErrorRegistro> datosInvalidos() {
 		return ResponseEntity.badRequest()
 				.body(new ErrorRegistro("Los datos de registro no son válidos"));

@@ -13,6 +13,12 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.camido.backend.categoria.Categoria;
+import com.camido.backend.categoria.CategoriaInvalidaException;
+import com.camido.backend.categoria.CategoriaRepository;
+import com.camido.backend.categoria.DeclaracionCategoria;
+import com.camido.backend.categoria.DeclaracionCategoriaRepository;
+
 @Service
 public class RegistroUsuarioService {
 
@@ -24,17 +30,23 @@ public class RegistroUsuarioService {
 	private final PasswordEncoder passwordEncoder;
 	private final TransactionTemplate transactionTemplate;
 	private final VerificacionEmailService verificacionEmailService;
+	private final CategoriaRepository categoriaRepository;
+	private final DeclaracionCategoriaRepository declaracionCategoriaRepository;
 
 	public RegistroUsuarioService(
 			UsuarioRepository usuarioRepository,
 			PasswordEncoder passwordEncoder,
 			PlatformTransactionManager transactionManager,
-			VerificacionEmailService verificacionEmailService) {
+			VerificacionEmailService verificacionEmailService,
+			CategoriaRepository categoriaRepository,
+			DeclaracionCategoriaRepository declaracionCategoriaRepository) {
 		this.usuarioRepository = usuarioRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.transactionTemplate = new TransactionTemplate(transactionManager);
 		this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
 		this.verificacionEmailService = verificacionEmailService;
+		this.categoriaRepository = categoriaRepository;
+		this.declaracionCategoriaRepository = declaracionCategoriaRepository;
 	}
 
 	/**
@@ -71,6 +83,16 @@ public class RegistroUsuarioService {
 			throw new EmailYaRegistradoException();
 		}
 
+		if (exigeCategoria(request.getIntencion()) && request.getCategoriaId() == null) {
+			throw new CategoriaInvalidaException();
+		}
+
+		Categoria declarada = null;
+		if (request.getCategoriaId() != null) {
+			declarada = categoriaRepository.findByIdAndActivoTrue(request.getCategoriaId())
+					.orElseThrow(CategoriaInvalidaException::new);
+		}
+
 		Usuario usuario = new Usuario();
 		usuario.setNombre(request.getNombre());
 		usuario.setApellido(request.getApellido());
@@ -79,7 +101,15 @@ public class RegistroUsuarioService {
 		usuario.setFechaNacimiento(request.getFechaNacimiento());
 		usuario.setEmailVerificado(false);
 		usuario.setEstado(UsuarioEstado.ACTIVO);
-		return usuarioRepository.saveAndFlush(usuario).getId();
+		Usuario guardado = usuarioRepository.saveAndFlush(usuario);
+		if (declarada != null) {
+			declaracionCategoriaRepository.save(new DeclaracionCategoria(guardado, declarada));
+		}
+		return guardado.getId();
+	}
+
+	private static boolean exigeCategoria(IntencionIncorporacion intencion) {
+		return intencion == IntencionIncorporacion.ALUMNO || intencion == IntencionIncorporacion.PROFESOR;
 	}
 
 	private boolean esEmailDuplicado(Throwable error) {

@@ -1,6 +1,7 @@
 package com.camido.backend.usuario;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -44,6 +45,18 @@ public class RegistroUsuarioRequest {
 	@Past
 	private LocalDate fechaNacimiento;
 
+	/**
+	 * Intención de incorporación. No se guarda como rol de la cuenta.
+	 */
+	@NotNull
+	private IntencionIncorporacion intencion;
+
+	/**
+	 * Obligatoria para ALUMNO y PROFESOR. Opcional para ORGANIZADOR.
+	 * Si viene, se guarda como declaración, no como grado oficial.
+	 */
+	private UUID categoriaId;
+
 	public String getNombre() {
 		return nombre;
 	}
@@ -84,6 +97,22 @@ public class RegistroUsuarioRequest {
 
 	public void setFechaNacimiento(LocalDate fechaNacimiento) {
 		this.fechaNacimiento = fechaNacimiento;
+	}
+
+	public IntencionIncorporacion getIntencion() {
+		return intencion;
+	}
+
+	public void setIntencion(IntencionIncorporacion intencion) {
+		this.intencion = intencion;
+	}
+
+	public UUID getCategoriaId() {
+		return categoriaId;
+	}
+
+	public void setCategoriaId(UUID categoriaId) {
+		this.categoriaId = categoriaId;
 	}
 
 	@Override

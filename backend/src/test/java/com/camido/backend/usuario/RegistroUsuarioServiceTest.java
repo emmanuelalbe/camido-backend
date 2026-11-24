@@ -5,18 +5,32 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Proxy;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+
+import com.camido.backend.categoria.Categoria;
+import com.camido.backend.categoria.CategoriaInvalidaException;
+import com.camido.backend.categoria.CategoriaRepository;
+import com.camido.backend.categoria.DeclaracionCategoria;
+import com.camido.backend.categoria.DeclaracionCategoriaRepository;
+import com.camido.backend.categoria.DeclaracionEstado;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -32,7 +46,10 @@ class RegistroUsuarioServiceTest {
 	private final AtomicReference<RuntimeException> errorAlGuardar = new AtomicReference<>();
 	private final AtomicReference<RuntimeException> errorAlConfirmar = new AtomicReference<>();
 	private final AtomicBoolean guardo = new AtomicBoolean();
+	private final AtomicBoolean confirmo = new AtomicBoolean();
 
+	private CategoriaRepository categorias;
+	private DeclaracionCategoriaRepository declaraciones;
 	private RegistroUsuarioService service;
 
 	@BeforeEach
@@ -42,8 +59,12 @@ class RegistroUsuarioServiceTest {
 		errorAlGuardar.set(null);
 		errorAlConfirmar.set(null);
 		guardo.set(false);
+		confirmo.set(false);
+		categorias = Mockito.mock(CategoriaRepository.class);
+		declaraciones = Mockito.mock(DeclaracionCategoriaRepository.class);
 		VerificacionEmailService verificacion = Mockito.mock(VerificacionEmailService.class);
-		service = new RegistroUsuarioService(repositorio(), encoder(), transacciones(), verificacion);
+		service = new RegistroUsuarioService(
+				repositorio(), encoder(), transacciones(), verificacion, categorias, declaraciones);
 	}
 
 	@Test
@@ -57,6 +78,110 @@ class RegistroUsuarioServiceTest {
 		assertEquals("hash:secreto12", usuario.getPasswordHash());
 		assertNotEquals("secreto12", usuario.getPasswordHash());
 		assertTrue(guardo.get());
+		verify(declaraciones, never()).save(any());
+	}
+
+	@Test
+	void guardaLaCategoriaComoDeclaracionSinReconocerlaComoOficial() {
+		UUID categoriaId = UUID.randomUUID();
+		Categoria categoria = categoria(categoriaId);
+		when(categorias.findByIdAndActivoTrue(categoriaId)).thenReturn(Optional.of(categoria));
+		RegistroUsuarioRequest request = solicitud();
+		request.setIntencion(IntencionIncorporacion.ALUMNO);
+		request.setCategoriaId(categoriaId);
+
+		service.registrar(request);
+
+		ArgumentCaptor<DeclaracionCategoria> captor = ArgumentCaptor.forClass(DeclaracionCategoria.class);
+		verify(declaraciones).save(captor.capture());
+		DeclaracionCategoria declaracion = captor.getValue();
+		assertEquals(DeclaracionEstado.DECLARADA, declaracion.getEstado());
+		assertEquals(categoria, declaracion.getCategoria());
+		assertEquals(guardado.get(), declaracion.getUsuario());
+		assertFalse(guardado.get().isEmailVerificado());
+	}
+
+	@Test
+	void alumnoSinCategoriaNoSeRegistra() {
+		RegistroUsuarioRequest request = solicitud();
+		request.setIntencion(IntencionIncorporacion.ALUMNO);
+
+		assertThrows(CategoriaInvalidaException.class, () -> service.registrar(request));
+		assertFalse(guardo.get());
+		verify(declaraciones, never()).save(any());
+	}
+
+	@Test
+	void profesorSinCategoriaNoSeRegistra() {
+		RegistroUsuarioRequest request = solicitud();
+		request.setIntencion(IntencionIncorporacion.PROFESOR);
+
+		assertThrows(CategoriaInvalidaException.class, () -> service.registrar(request));
+		assertFalse(guardo.get());
+		verify(declaraciones, never()).save(any());
+	}
+
+	@Test
+	void organizadorPuedeRegistrarseSinCategoriaYSinRol() {
+		service.registrar(solicitud());
+
+		assertEquals(UsuarioEstado.ACTIVO, guardado.get().getEstado());
+		verify(declaraciones, never()).save(any());
+	}
+
+	@Test
+	void organizadorConCategoriaQuedaSoloComoDeclaracion() {
+		UUID categoriaId = UUID.randomUUID();
+		when(categorias.findByIdAndActivoTrue(categoriaId)).thenReturn(Optional.of(categoria(categoriaId)));
+		RegistroUsuarioRequest request = solicitud();
+		request.setCategoriaId(categoriaId);
+
+		service.registrar(request);
+
+		ArgumentCaptor<DeclaracionCategoria> captor = ArgumentCaptor.forClass(DeclaracionCategoria.class);
+		verify(declaraciones).save(captor.capture());
+		assertEquals(DeclaracionEstado.DECLARADA, captor.getValue().getEstado());
+	}
+
+	@Test
+	void profesorConCategoriaValidaQuedaComoDeclaracion() {
+		UUID categoriaId = UUID.randomUUID();
+		when(categorias.findByIdAndActivoTrue(categoriaId)).thenReturn(Optional.of(categoria(categoriaId)));
+		RegistroUsuarioRequest request = solicitud();
+		request.setIntencion(IntencionIncorporacion.PROFESOR);
+		request.setCategoriaId(categoriaId);
+
+		service.registrar(request);
+
+		ArgumentCaptor<DeclaracionCategoria> captor = ArgumentCaptor.forClass(DeclaracionCategoria.class);
+		verify(declaraciones).save(captor.capture());
+		assertEquals(DeclaracionEstado.DECLARADA, captor.getValue().getEstado());
+		assertFalse(guardado.get().isEmailVerificado());
+	}
+
+	@Test
+	void rechazaCategoriaInexistenteSinGuardarUsuario() {
+		UUID categoriaId = UUID.randomUUID();
+		when(categorias.findByIdAndActivoTrue(categoriaId)).thenReturn(Optional.empty());
+		RegistroUsuarioRequest request = solicitud();
+		request.setCategoriaId(categoriaId);
+
+		assertThrows(CategoriaInvalidaException.class, () -> service.registrar(request));
+		assertFalse(guardo.get());
+		assertFalse(confirmo.get());
+		verify(declaraciones, never()).save(any());
+	}
+
+	@Test
+	void siFallaLaDeclaracionNoConfirmaElRegistro() {
+		UUID categoriaId = UUID.randomUUID();
+		when(categorias.findByIdAndActivoTrue(categoriaId)).thenReturn(Optional.of(categoria(categoriaId)));
+		when(declaraciones.save(any())).thenThrow(new RuntimeException("fallo de declaracion"));
+		RegistroUsuarioRequest request = solicitud();
+		request.setCategoriaId(categoriaId);
+
+		assertThrows(RuntimeException.class, () -> service.registrar(request));
+		assertFalse(confirmo.get());
 	}
 
 	@Test
@@ -89,6 +214,7 @@ class RegistroUsuarioServiceTest {
 		request.setEmail("Ana@Ejemplo.com");
 		request.setPassword("secreto12");
 		request.setFechaNacimiento(LocalDate.of(2000, 1, 2));
+		request.setIntencion(IntencionIncorporacion.ORGANIZADOR);
 		return request;
 	}
 
@@ -115,6 +241,7 @@ class RegistroUsuarioServiceTest {
 
 			@Override
 			public void commit(TransactionStatus status) throws TransactionException {
+				confirmo.set(true);
 				RuntimeException error = errorAlConfirmar.get();
 				if (error != null) {
 					throw error;
@@ -160,6 +287,21 @@ class RegistroUsuarioServiceTest {
 					}
 					return null;
 				});
+	}
+
+	private Categoria categoria(UUID id) {
+		try {
+			Constructor<Categoria> constructor = Categoria.class.getDeclaredConstructor();
+			constructor.setAccessible(true);
+			Categoria categoria = constructor.newInstance();
+			Field field = Categoria.class.getDeclaredField("id");
+			field.setAccessible(true);
+			field.set(categoria, id);
+			return categoria;
+		}
+		catch (ReflectiveOperationException ex) {
+			throw new IllegalStateException(ex);
+		}
 	}
 
 	private static final class InvocationHandlerInvoke {

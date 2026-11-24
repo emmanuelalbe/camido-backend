@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.function.Supplier;
 
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
@@ -71,6 +72,7 @@ public class SecurityConfig {
 						.requestMatchers("/api/usuarios/verificacion-email/reenvio").permitAll()
 						.requestMatchers("/api/auth/login").permitAll()
 						.requestMatchers("/api/auth/csrf").permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/categorias").permitAll()
 						.requestMatchers("/api/**").authenticated()
 						.anyRequest().denyAll())
 				.logout(AbstractHttpConfigurer::disable)

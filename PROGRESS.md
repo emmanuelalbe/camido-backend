@@ -1,6 +1,6 @@
 # PROGRESS.md — Cami-Do
 
-Última actualización: 2026-11-23
+Última actualización: 2026-11-23 (registro web y categoría declarada)
 
 ## Tecnologías configuradas
 
@@ -34,7 +34,7 @@ Verificaciones de calidad asociadas al módulo:
 | Flyway V1 y V2 | Aplicadas (`success=true`); schema en versión 2 |
 | Build Angular development | OK |
 | Build Angular production | OK (`apiBaseUrl=/api`, sin localhost) |
-| Pruebas frontend (Vitest) | **5/5** OK (`verificar-email.spec.ts`) |
+| Pruebas frontend (Vitest) | **5/5** OK en ese momento (`verificar-email.spec.ts`). Luego subió a 17 con login y registro. |
 | Pruebas backend relevantes | Registro + verificación (unitarias/controller) e integración PostgreSQL OK |
 
 ## Verificado (infra / esquema)
@@ -99,13 +99,14 @@ Verificaciones de calidad asociadas al módulo:
 
 | Ítem | Estado |
 |---|---|
-| Estructura | Standalone; `features/auth` (verificación, login, bienvenida). |
+| Estructura | Standalone; `features/auth` (verificación, login, registro, bienvenida). |
 | Entornos | Dev y prod usan `/api`. En desarrollo `ng serve` proxea `/api` a `localhost:8080` para que la cookie de sesión sea del mismo sitio. |
 | UI verificación | Estados: verificando / ok / inválido / ausente / errorRed. Token fuera de la URL tras procesar. |
 | Login UI | `/login` (Reactive Forms) y `/bienvenida` protegida con guard. `AuthService` + `withCredentials`. Sin secretos en storage. |
 | Strict | TypeScript `strict` + `strictTemplates`. |
-| Pruebas | Vitest **11/11** OK (5 verificación + 6 login/sesión/guard). |
-| Builds | Development y production OK. |
+| Registro UI | `/registro` con Reactive Forms, catálogo ITF desde `GET /api/categorias` y enlace desde login. |
+| Pruebas | Vitest **17/17** OK (5 verificación + 6 login/sesión/guard + 6 registro). |
+| Builds | Development y production OK tras el registro web. |
 | Git | Configurado y publicado (ver sección siguiente). |
 
 ## Git y GitHub (2026-11-23)
@@ -129,15 +130,32 @@ Verificaciones de calidad asociadas al módulo:
 | Estrategia | Sesión de servidor (`JSESSIONID` HttpOnly, `SameSite=Lax`). `Secure` solo en perfil `prod`. CSRF con cookie `XSRF-TOKEN` (no HttpOnly) y header `X-XSRF-TOKEN`. |
 | Endpoints | `GET /api/auth/csrf`, `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`. |
 | Reglas | Email normalizado. Un mismo mensaje si no existe, contraseña incorrecta, email no verificado o cuenta no activa. Límite en memoria: 5 fallos / 15 min por IP+email (una sola instancia). |
-| Públicos | Registro, verificación, reenvío, saludo y login. El resto de `/api/**` exige sesión. |
+| Públicos | Registro, verificación, reenvío, saludo, login y `GET /api/categorias`. El resto de `/api/**` exige sesión. |
 | Sesión | `changeSessionId` al autenticar. Logout invalida la sesión. No hay tabla nueva ni cambios a V1/V2. |
 | Pruebas backend | `AuthServiceTest` + `AuthControllerTest` OK (login, rechazo genérico, 401 sin sesión, logout, CSRF 403, límite 429). Registro y verificación de controllers/servicios sin regresión. |
 | E2E navegador | **Pendiente.** Hace falta autorización para usar o crear una cuenta de prueba. |
 
+## Registro web y categoría declarada (2026-11-23)
+
+**Implementado y probado automáticamente. E2E con correo real pendiente de autorización.**
+
+| Ítem | Estado |
+|---|---|
+| Pantalla | `/registro` pide el recorrido inicial. Alumno y profesor deben elegir cinturón. Organizador puede omitirlo. La intención no se guarda como rol. |
+| Backend | Se reutiliza `POST /api/usuarios/registro`. `intencion` es obligatoria y no se persiste. `categoriaId` es obligatorio para ALUMNO y PROFESOR, opcional para ORGANIZADOR. Si viene, tiene que existir y estar activa. Ver `DECISIONS.md`. |
+| Catálogo | `GET /api/categorias` público: id, código, nombre y orden. Solo categorías activas. |
+| Persistencia | Flyway **V3** aplicada en Supabase (`declaraciones_categoria`): una declaración por usuario, estado fijo `DECLARADA`, FK a `usuarios` y `categorias`. No es grado oficial ni membresía. V1 y V2 no se modificaron. Schema en versión 3. |
+| Transacción | Usuario y declaración se guardan en la misma transacción. El correo se intenta después del commit, como antes. |
+| Pruebas backend | Registro, categoría inválida sin alta, fallo de declaración sin commit, login/CSRF y verificación sin regresión. |
+| Pruebas frontend | Formulario, catálogo, coincidencia de contraseñas, fecha, alta, duplicado, conexión y doble envío. |
+| E2E navegador | **Pendiente.** No se creó una cuenta nueva ni se envió correo. `onboarding@resend.dev` solo entrega a destinatarios autorizados. |
+| Menores | El registro no bloquea por edad. Falta definir consentimiento y representación antes de uso real con menores. |
+
 ## Pendientes
 
-1. Validar login/logout en el navegador (E2E) con una cuenta de prueba autorizada.
-2. Revisar y limpiar usuarios de prueba, **previa autorización**.
-3. **Próximo módulo sugerido:** recuperación de contraseña (todavía no implementada).
-4. Instituciones / roles / evaluaciones: fuera del alcance inmediato.
-5. El límite de login es en memoria: no se comparte entre varias instancias.
+1. E2E de registro + verificación + login con una cuenta y un destinatario autorizados.
+2. El backend actualizado ya arrancó en 8080 (2026-11-24). Flyway validó 3 migraciones y el schema sigue en v3. `GET /api/categorias` respondió 200 con 19 categorías ordenadas. Falta el E2E con un destinatario autorizado.
+3. Revisar y limpiar usuarios de prueba, **previa autorización**.
+4. **Próximo módulo sugerido:** alta de institución por el organizador (sede principal), todavía sin implementar.
+5. Consentimiento de menores, recuperación de contraseña e incorporación de profesores/alumnos: fuera de este bloque.
+6. El límite de login es en memoria: no se comparte entre varias instancias.

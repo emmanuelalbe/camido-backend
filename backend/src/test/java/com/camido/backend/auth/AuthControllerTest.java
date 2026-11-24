@@ -135,6 +135,16 @@ class AuthControllerTest {
 				.andExpect(jsonPath("$.mensaje").value(AuthController.MENSAJE_LIMITE));
 	}
 
+	@Test
+	void elCatalogoDeCategoriasNoExigeSesion() throws Exception {
+		mockMvc.perform(get("/api/categorias")).andExpect(status().isNotFound());
+	}
+
+	@Test
+	void escribirCategoriasExigeSesion() throws Exception {
+		mockMvc.perform(post("/api/categorias").with(csrf())).andExpect(status().isUnauthorized());
+	}
+
 	private Usuario usuarioValido() throws Exception {
 		Constructor<Usuario> constructor = Usuario.class.getDeclaredConstructor();
 		constructor.setAccessible(true);
