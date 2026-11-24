@@ -1,0 +1,11 @@
+# Cursor / local tooling
+.cursor/
+*.log
+debug-*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# The Maven module lives under backend/; its own .gitignore covers
+# .env, target/, IDE files, etc.
