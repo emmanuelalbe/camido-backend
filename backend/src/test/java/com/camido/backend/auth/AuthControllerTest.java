@@ -16,6 +16,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -29,10 +30,12 @@ import com.camido.backend.config.SecurityConfig;
 import com.camido.backend.usuario.Usuario;
 import com.camido.backend.usuario.UsuarioEstado;
 import com.camido.backend.usuario.UsuarioRepository;
+import com.camido.backend.usuario.VerificacionEmailProperties;
 
 import jakarta.servlet.http.HttpSession;
 
 @WebMvcTest(AuthController.class)
+@EnableConfigurationProperties(VerificacionEmailProperties.class)
 @Import({
 		SecurityConfig.class,
 		AuthService.class,

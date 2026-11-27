@@ -51,6 +51,9 @@ public class VerificacionEmailService {
 	 */
 	@Transactional
 	public void emitirParaUsuario(UUID usuarioId) {
+		if (!properties.isObligatoria()) {
+			return;
+		}
 		Usuario usuario = usuarioRepository.findByIdForUpdate(usuarioId)
 				.orElseThrow(() -> new IllegalArgumentException("Usuario inexistente"));
 		if (usuario.isEmailVerificado() || usuario.getEstado() != UsuarioEstado.ACTIVO) {
@@ -89,6 +92,9 @@ public class VerificacionEmailService {
 	 */
 	@Transactional
 	public void reenviar(String email) {
+		if (!properties.isObligatoria()) {
+			return;
+		}
 		Optional<Usuario> posible = usuarioRepository.findByEmailIgnoreCaseForUpdate(email);
 		if (posible.isEmpty()) {
 			return;

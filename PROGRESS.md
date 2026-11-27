@@ -1,6 +1,6 @@
 # PROGRESS.md — Cami-Do
 
-Última actualización: 2026-11-23 (registro web y categoría declarada)
+Última actualización: 2026-11-24 (pausa local de la verificación de email)
 
 ## Tecnologías configuradas
 
@@ -151,7 +151,28 @@ Verificaciones de calidad asociadas al módulo:
 | E2E navegador | **Pendiente.** No se creó una cuenta nueva ni se envió correo. `onboarding@resend.dev` solo entrega a destinatarios autorizados. |
 | Menores | El registro no bloquea por edad. Falta definir consentimiento y representación antes de uso real con menores. |
 
+## Pausa local de la verificación de email (2026-11-24)
+
+**Excepción temporal. No está reactivada ni probada de extremo a extremo.**
+
+| Ítem | Estado |
+|---|---|
+| Valor por defecto | `camido.verificacion-email.obligatoria=true`. El login sigue exigiendo correo verificado y el alta intenta enviar el enlace. |
+| Pausa | Solo con perfil Spring `local` y `CAMIDO_VERIFICACION_EMAIL_OBLIGATORIA=false`. Cuenta `ACTIVA` + contraseña correcta entra con `email_verificado=false`. No se envía correo ni se modifican usuarios o tokens existentes. |
+| Arranque | Si la pausa se pide sin perfil `local`, o con `prod` / `production`, el backend no arranca. |
+| Proveedor | Resend no se modificó. Sigue seleccionándose con `EMAIL_PROVIDER=resend`. |
+| Datos | No se crearon usuarios ni se enviaron correos reales en esta etapa. |
+| Pruebas | Modo obligatorio y modo pausado cubiertos en `AuthServiceTest`, `VerificacionEmailServiceTest` y `VerificacionEmailStartupValidatorTest`. |
+
 ## Pendientes
+
+- [ ] Reactivar la verificación de email (`CAMIDO_VERIFICACION_EMAIL_OBLIGATORIA=true`) antes de publicar Cami-Do.
+- [ ] Confirmar en un arranque real que el backend rechaza la pausa fuera del perfil `local` y también con `prod`.
+- [ ] Prueba E2E real de registro, verificación de correo y login.
+- [ ] Disponer de un dominio propio y verificarlo en Resend antes de ese E2E con destinatarios reales.
+- [ ] Configurar `RESEND_FROM` con el dominio verificado y `EMAIL_PROVIDER=resend` en producción.
+- [ ] Comprobar que los correos llegan a distintos destinatarios.
+- [ ] Verificar que no se exponen claves ni tokens.
 
 1. E2E de registro + verificación + login con una cuenta y un destinatario autorizados.
 2. El backend actualizado ya arrancó en 8080 (2026-11-24). Flyway validó 3 migraciones y el schema sigue en v3. `GET /api/categorias` respondió 200 con 19 categorías ordenadas. Falta el E2E con un destinatario autorizado.

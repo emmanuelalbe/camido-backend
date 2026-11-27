@@ -21,3 +21,18 @@ La categoría informada en el registro es DECLARADA. No es un cinturón reconoci
 Se guarda en `declaraciones_categoria`, con referencia al usuario y al catálogo ITF. No se escribe en `Usuario`. No otorga roles ni habilita notas oficiales.
 
 El catálogo sale de `GET /api/categorias`. No se duplica en Angular.
+
+## Verificación de email pausada solo en local (temporal)
+
+La verificación de correo sigue obligatoria por defecto y en cualquier arranque que no sea el perfil Spring `local`. El login exige `email_verificado=true`, y el alta intenta enviar el enlace con el proveedor ya configurado (Resend o ninguno).
+
+Para seguir el MVP sin dominio ni correo real se puede pausar esa obligación, de forma explícita y solo en desarrollo local:
+
+- Perfil `local`, sin `prod` ni `production`.
+- `CAMIDO_VERIFICACION_EMAIL_OBLIGATORIA=false`.
+
+Con la pausa, una cuenta `ACTIVA` entra con la contraseña correcta aunque `email_verificado` siga en `false`. No se envía el correo, no se crean tokens nuevos y no se cambia `email_verificado`. BCrypt, sesión, CSRF y las validaciones del registro no cambian. El endpoint de verificación sigue disponible.
+
+Si esa variable vale `false` sin el perfil `local`, o junto con `prod` / `production`, el backend no arranca.
+
+Esta excepción se retira antes de publicar. Hasta entonces no se considera cerrado el registro con correo real.

@@ -167,6 +167,42 @@ class VerificacionEmailServiceTest {
 	}
 
 	@Test
+	void pausaNoEmiteTokenNiEnviaCorreo() {
+		service = servicioConVerificacion(false);
+
+		service.emitirParaUsuario(USUARIO_ID);
+
+		verify(tokenRepository, never()).saveAndFlush(any());
+		verify(usuarioRepository, never()).findByIdForUpdate(any());
+		assertTrue(emailSender.enlaces.isEmpty());
+	}
+
+	@Test
+	void pausaNoReenviaNiModificaTokens() {
+		service = servicioConVerificacion(false);
+
+		service.reenviar("ana@ejemplo.com");
+
+		verify(tokenRepository, never()).saveAndFlush(any());
+		verify(usuarioRepository, never()).findByEmailIgnoreCaseForUpdate(any());
+		assertTrue(emailSender.enlaces.isEmpty());
+	}
+
+	@Test
+	void pausaConservaLaVerificacionDeUnTokenExistente() {
+		service = servicioConVerificacion(false);
+		String token = TokenVerificacionEmailSupport.generarTokenEnClaro();
+		String hash = TokenVerificacionEmailSupport.sha256Hex(token);
+		when(tokenRepository.marcarUsadoSiValido(hash, AHORA)).thenReturn(1);
+		when(tokenRepository.findByTokenHash(hash)).thenReturn(Optional.of(tokenPendiente(hash)));
+		when(usuarioRepository.marcarEmailVerificado(USUARIO_ID)).thenReturn(1);
+
+		service.verificar(token);
+
+		verify(usuarioRepository).marcarEmailVerificado(USUARIO_ID);
+	}
+
+	@Test
 	void falloDeEnvioNoExponeTokenNiRevierteLaEmision() {
 		when(tokenRepository.invalidarPendientes(eq(USUARIO_ID), eq(AHORA))).thenReturn(0);
 		when(tokenRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -230,6 +266,14 @@ class VerificacionEmailServiceTest {
 
 		assertEquals(1, exitos.get());
 		assertEquals(1, fallos.get());
+	}
+
+	private VerificacionEmailService servicioConVerificacion(boolean obligatoria) {
+		VerificacionEmailProperties properties = new VerificacionEmailProperties();
+		properties.setUrlBase("http://localhost:4200/verificar-email");
+		properties.setObligatoria(obligatoria);
+		return new VerificacionEmailService(
+				tokenRepository, usuarioRepository, emailSender, properties, Clock.fixed(AHORA, ZoneOffset.UTC));
 	}
 
 	private TokenVerificacionEmail tokenPendiente(String hash) {

@@ -19,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import com.camido.backend.usuario.Usuario;
 import com.camido.backend.usuario.UsuarioEstado;
 import com.camido.backend.usuario.UsuarioRepository;
+import com.camido.backend.usuario.VerificacionEmailProperties;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -30,11 +31,13 @@ class AuthServiceTest {
 	private UsuarioRepository usuarioRepository;
 
 	private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+	private final VerificacionEmailProperties verificacionEmail = new VerificacionEmailProperties();
 	private AuthService authService;
 
 	@BeforeEach
 	void setUp() {
-		authService = new AuthService(usuarioRepository, passwordEncoder);
+		verificacionEmail.setObligatoria(true);
+		authService = new AuthService(usuarioRepository, passwordEncoder, verificacionEmail);
 	}
 
 	@Test
@@ -59,6 +62,26 @@ class AuthServiceTest {
 	@Test
 	void emailNoVerificado() {
 		when(usuarioRepository.findByEmailIgnoreCase(EMAIL)).thenReturn(Optional.of(usuario(false, UsuarioEstado.ACTIVO)));
+		assertThrows(BadCredentialsException.class, () -> authService.autenticar(EMAIL, PASSWORD));
+	}
+
+	@Test
+	void emailNoVerificadoPuedeEntrarSiLaVerificacionEstaPausada() {
+		verificacionEmail.setObligatoria(false);
+		when(usuarioRepository.findByEmailIgnoreCase(EMAIL)).thenReturn(Optional.of(usuario(false, UsuarioEstado.ACTIVO)));
+		UsuarioPrincipal principal = authService.autenticar(EMAIL, PASSWORD);
+		assertEquals(EMAIL, principal.getEmail());
+		assertEquals(false, principal.isEmailVerificado());
+	}
+
+	@Test
+	void pausaNoAceptaPasswordIncorrectaNiCuentaInactiva() {
+		verificacionEmail.setObligatoria(false);
+		when(usuarioRepository.findByEmailIgnoreCase(EMAIL)).thenReturn(Optional.of(usuario(false, UsuarioEstado.ACTIVO)));
+		assertThrows(BadCredentialsException.class, () -> authService.autenticar(EMAIL, "otra-clave"));
+		when(usuarioRepository.findByEmailIgnoreCase(EMAIL)).thenReturn(Optional.of(usuario(false, UsuarioEstado.INACTIVO)));
+		assertThrows(BadCredentialsException.class, () -> authService.autenticar(EMAIL, PASSWORD));
+		when(usuarioRepository.findByEmailIgnoreCase(EMAIL)).thenReturn(Optional.of(usuario(false, UsuarioEstado.SUSPENDIDO)));
 		assertThrows(BadCredentialsException.class, () -> authService.autenticar(EMAIL, PASSWORD));
 	}
 
